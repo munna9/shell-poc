@@ -1,0 +1,17 @@
+master:
+  ingress:
+    ssl_arn: ${ssl_certificate_arn}
+    secutiry_group_ids: ${security_group_ids}
+    hostName: ${desired_jenkins_hostname}
+
+serviceAccount:
+  create: true
+  name: ${jenkins_deployment.serviceaccount_master}
+  annotations:
+    eks.amazonaws.com/role-arn: ${eks-role-arn-master}
+
+serviceAccountAgent:
+  create: true
+  name: ${jenkins_deployment.serviceaccount_agent}
+  annotations:
+    eks.amazonaws.com/role-arn: ${eks-role-arn-agent}
