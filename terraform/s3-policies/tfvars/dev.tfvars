@@ -1,0 +1,6 @@
+profile = "dev"
+role_arn = "arn:aws:iam::317380420770:role/dev-readandwrite"
+region = "us-east-1"
+cost_center = "232"
+business_unit = "de"
+organization = "ep"

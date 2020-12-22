@@ -1,0 +1,5 @@
+bucket-name     = "sftp-ne-prod"
+region          = "us-east-1"
+sftp-user-name  = "prod-sftp"
+sftp_name       = "prod-sftp"
+vpc_id        = "vpc-0b9fe3ee2a597b51d"
