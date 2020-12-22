@@ -1,0 +1,70 @@
+image:
+  name: registry.ep.shell.com/stage/mgmt/infra/ncloud/terraform-runner
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+# Default output file for Terraform plan
+variables:
+  PLAN: plan.tfplan
+  JSON_PLAN_FILE: tfplan.json
+  TF_IN_AUTOMATION: "true"
+  BACKEND_CONFIG_FILE: "../../backend-configs/engineering.hcl"
+  STACK: "engineering/network"
+  PARAM_DIR: "dev"
+  PARAM_FILE_VPC: "engineering"
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .terraform
+
+before_script:
+  - alias convert_report="jq -r '([.resource_changes[].change.actions?]|flatten)|{\"create\":(map(select(.==\"create\"))|length),\"update\":(map(select(.==\"update\"))|length),\"delete\":(map(select(.==\"delete\"))|length)}'"
+  - terraform --version
+  - cd terraform/${STACK}
+  - source /usr/local/bin/set_aws_creds
+  - terraform init -backend-config ${BACKEND_CONFIG_FILE}
+  - env
+
+
+stages:
+  - validate
+  - plan
+
+validate:
+  stage: validate
+  script:
+    - terraform validate
+    # - terraform fmt -check=true
+  only:
+    - branches
+  tags:
+    - terraform
+    - infra_deploy
+
+merge review:
+  stage: plan
+  script:
+    - source /usr/local/bin/set_aws_creds
+    - terraform plan -var-file=./tfvars/${PARAM_DIR}/${PARAM_FILE_VPC}.tfvars -out=$PLAN
+    - echo \`\`\`diff > plan.txt
+    - terraform show -no-color ${PLAN} | tee -a plan.txt
+    - echo \`\`\` >> plan.txt
+    - sed -i -e 's/  +/+/g' plan.txt
+    - sed -i -e 's/  ~/~/g' plan.txt
+    - sed -i -e 's/  -/-/g' plan.txt
+    - MESSAGE=$(cat plan.txt)
+    - >-
+      curl -X POST -g -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}"
+      --data-urlencode "body=${MESSAGE}"
+      "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/discussions"
+  artifacts:
+    name: plan
+    paths:
+      - $PLAN
+  only:
+    - merge_requests
+  tags:
+    - terraform
+    - infra_deploy
