@@ -1,0 +1,38 @@
+---
+- ec2_metadata_facts:
+
+- name: mask etcd
+  file:
+    src: /dev/null
+    dest: /etc/systemd/system/etcd.service
+    state: link
+
+- name: Wait for any possibly running unattended upgrade to finish
+  raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+
+- name: install etcd
+  apt:
+    pkg:
+      - etcd
+      - etcd-client
+      - etcd-server
+      - pipexec
+    update_cache: yes
+
+- name: test variables
+  set_fact:
+    etcd_hostnames: "{{ play_hosts | map('extract', hostvars, 'ansible_hostname') | list }}"
+    etcd_endpoints: "{{ play_hosts | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','http://\\1:2380') | list }}"
+
+- name: configure etcd
+  template:
+    src: etc/default/etcd.j2
+    dest: /etc/default/etcd
+  notify: reload systemd
+
+- name: unmask, enable and start etcd
+  systemd:
+    name: etcd
+    state: started
+    enabled: yes
+    masked: no

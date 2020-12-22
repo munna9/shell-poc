@@ -1,0 +1,58 @@
+---
+- ec2_metadata_facts:
+
+- name: wait for any possibly running unattended upgrade to finish
+  raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+
+- name: update all packages
+  apt:
+    name: "*"
+    state: latest
+    force_apt_get: True
+
+- name: install nvme tools
+  apt:
+    name: nvme-cli
+    update_cache: yes
+
+- name: check if any nvme devices exist
+  command: nvme list
+  register: nvme_exist
+  changed_when: False
+  check_mode: no
+
+- name: install nvme mapper files
+  block:
+    - name: install ebs mapper script
+      copy:
+        src: "./files/ebs-nvme-mapping.sh"
+        dest: "/usr/local/bin/ebs-nvme-mapping"
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: install udev rules
+      copy:
+        src: "./files/999-aws-ebs-nvme.rules"
+        dest: "/etc/udev/rules.d/999-aws-ebs-nvme.rules"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Ensure script runs once
+      command: /usr/local/bin/ebs-nvme-mapping
+      changed_when: False
+  when: not(nvme_exist.stdout | regex_search('No NVMe devices detected.'))
+
+- name: create a xfs filesystem on /dev/sdh
+  filesystem:
+    fstype: xfs
+    dev: /dev/sdh
+    resizefs: yes
+
+- name: mount the volume
+  mount:
+    path: /var/lib/postgresql
+    src: /dev/sdh
+    fstype: xfs
+    state: mounted

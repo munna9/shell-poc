@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: hasura
+    hasuraService: custom
+  name: hasura
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hasura
+  template:
+    metadata:
+      labels:
+        app: hasura
+    spec:
+      containers:
+      - image: hasura/graphql-engine:v1.0.0
+        imagePullPolicy: IfNotPresent
+        name: hasura
+        env:
+        - name: HASURA_GRAPHQL_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: hasura
+              key: database_url
+        - name: HASURA_GRAPHQL_ADMIN_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: hasura
+              key: admin_secret
+        - name: HASURA_GRAPHQL_ENABLE_CONSOLE
+          value: "true"
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: hasura
+  name: hasura
+spec:
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: hasura
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: hasura
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:258010404141:certificate/78cb629a-f8b1-4094-9977-cf772f959b41
+    alb.ingress.kubernetes.io/security-groups: sg-0756a8f5a1210504b
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+spec:
+  rules:
+    - host: hasura.prod.ep.shell.com
+      http:
+        paths:
+        - backend:
+            serviceName: ssl-redirect
+            servicePort: use-annotation
+        - backend:
+            serviceName: hasura
+            servicePort: 8080
+---

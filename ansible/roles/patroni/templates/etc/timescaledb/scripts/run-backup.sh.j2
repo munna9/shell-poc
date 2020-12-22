@@ -1,0 +1,9 @@
+#!/bin/bash
+source /etc/timescaledb/scripts/is-leader.sh
+if isLeader
+  then
+    echo "Create stanza"
+    pgbackrest --pg1-path=/var/lib/postgresql/11/main --stanza={{ patroni_scope | default('engineering') }}-stanza --type=diff --log-level-console=info backup
+  else
+    echo "Skip backup"
+fi

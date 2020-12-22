@@ -1,0 +1,10 @@
+#!/bin/bash
+source /etc/timescaledb/scripts/is-leader.sh
+
+if isLeader
+  then
+    echo "Create stanza"
+    pgbackrest --pg1-path=/var/lib/postgresql/11/main --stanza={{ patroni_scope | default('engineering') }}-stanza --log-level-console=info stanza-create
+  else
+    echo "Skip init"
+fi

@@ -1,0 +1,2 @@
+ansible_python_interpreter: /usr/bin/python3
+#ansible_ssh_common_args: '-o ProxyCommand="ssh -o StrictHostKeyChecking=no -W %h:%p -q <basstion-user>@<"

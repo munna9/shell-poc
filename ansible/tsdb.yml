@@ -1,0 +1,38 @@
+- hosts: all
+  become_user: root
+  become_method: sudo
+  become: True
+  vars:
+    patroni_scope: engineering
+  pre_tasks:
+    - name: tune timescale db
+      command: timescaledb-tune -yes
+  post_tasks:
+    - name: start patroni in leader node
+      block:
+        - name: start patroni
+          systemd:
+            name: patroni
+            state: started
+            daemon_reload: yes
+        - name: pause
+          pause:
+            seconds: 5
+        - name: stop patroni
+          systemd:
+            name: patroni
+            state: restarted
+            daemon_reload: yes
+      run_once: true
+    - name: pause
+      pause:
+        seconds: 5
+    - name: start patroni on all nodes
+      systemd:
+        name: patroni
+        state: started
+        daemon_reload: yes
+
+  roles:
+    - etcd
+    - patroni

@@ -1,0 +1,20 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: restart patroni
+  systemd:
+    name: patroni
+    state: restarted
+    enabled: yes
+    masked: no
+    daemon_reload: yes
+
+- name: restart haproxy
+  systemd:
+    name: haproxy
+    state: restarted
+    enabled: yes
+    masked: no
+    daemon_reload: yes

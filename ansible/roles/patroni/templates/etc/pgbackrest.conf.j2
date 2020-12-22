@@ -1,0 +1,26 @@
+[global]
+#repo-path=/var/lib/pgbackrest
+repo-path=/{{ patroni_scope | default('engineering') }}/
+repo1-retention-diff=3
+repo1-retention-full=3
+repo1-type=s3
+repo1-s3-endpoint=s3.amazonaws.com
+repo1-s3-bucket={{ pg_backup_bucket }}
+repo1-s3-verify-tls=n
+repo1-s3-region=us-east-1
+repo1-s3-key={{ pg_backup_aws_key }}
+repo1-s3-key-secret={{ pg_backup_aws_secret }}
+[{{ patroni_scope | default('engineering') }}-stanza]
+pg1-path=/var/lib/postgresql/11/main
+[global]
+archive-async=y
+log-level-file=detail
+log-level-console=info
+process-max=3
+delta=y
+#repo1-host=repository
+spool-path=/var/spool/pgbackrest
+[global:archive-get]
+process-max=2
+[global:archive-push]
+process-max=2

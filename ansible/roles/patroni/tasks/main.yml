@@ -1,0 +1,73 @@
+---
+- name: get all patroni hosts
+  set_fact:
+    patroni_hosts: "{{ play_hosts | map('extract', hostvars, 'ansible_hostname') | list }}"
+    patroni_endpoints: "{{ play_hosts | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:5432') | list }}"
+    etcd_endpoints: "{{ play_hosts | map('extract', hostvars, ['ansible_default_ipv4','address']) | map('regex_replace', '^(.*)$','\\1:2379') | list }}"
+
+- name: configure pg_hba
+  template:
+    src: etc/postgresql/11/main/pg_hba.conf.j2
+    dest: /etc/postgresql/11/main/pg_hba.conf
+
+- name: Wait for any possibly running unattended upgrade to finish
+  raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+
+- name: install python3-pip
+  apt:
+    pkg:
+      - python3-pip
+      - jq
+    update_cache: yes
+
+- name: install psycopg2-binary
+  pip:
+    name: psycopg2-binary
+    executable: pip3
+
+- name: modify postgres superuser
+  postgresql_user:
+    name: postgres
+    password: "{{ pg_postgres_password }}"
+  become_user: postgres
+
+- name: create replicator superuser
+  postgresql_user:
+    name: replicator
+    password: "{{ pg_replicator_password }}"
+    role_attr_flags: REPLICATION,LOGIN
+  become_user: postgres
+
+- name: mask patroni
+  file:
+    src: /dev/null
+    dest: /etc/systemd/system/patroni.service
+    state: link
+
+- name: install patroni
+  apt:
+    pkg:
+      - patroni
+      - haproxy
+    update_cache: yes
+
+- name: unmask patroni
+  systemd:
+    name: patroni
+    masked: no
+    enabled: yes
+    daemon_reload: yes
+
+- name: configure patroni
+  template:
+    src: etc/patroni/config.yml.j2
+    dest: /etc/patroni/config.yml
+
+- name: configure haproxy
+  template:
+    src: etc/haproxy/haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+  notify: restart haproxy
+
+- name: include pgbackrest
+  include_tasks: pgbackrest.yml

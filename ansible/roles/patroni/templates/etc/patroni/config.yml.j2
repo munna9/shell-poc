@@ -1,0 +1,89 @@
+scope: {{ patroni_scope | default('engineering') }}
+name: {{ ansible_hostname }}
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 127.0.0.1:8008
+
+etcd:
+  hosts: {{ etcd_endpoints |  join(',') }}
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout : 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_keep_segments: 100
+        archive_command: "pgbackrest --stanza={{ patroni_scope | default('engineering') }} archive-push %p"
+        archive_mode: "on"
+        archive_timeout: 1800s
+        autovacuum_analyze_scale_factor: 0.02
+        autovacuum_max_workers: 10
+        autovacuum_vacuum_scale_factor: 0.05
+        hot_standby: "on"
+        log_autovacuum_min_duration: 0
+        log_checkpoints: "on"
+        log_connections: "on"
+        log_disconnections: "on"
+        log_line_prefix: '%t [%p]: [%c-%l] %u@%d,app=%a [%e] '
+        log_lock_waits: "on"
+        log_min_duration_statement: 1s
+        log_statement: ddl
+        max_connections: 100
+        max_prepared_transactions: 150
+        shared_preload_libraries: timescaledb,pg_stat_statements
+        #ssl: "on"
+        #ssl_cert_file: /etc/certificate/tls.crt
+        #ssl_key_file: /etc/certificate/tls.key
+        tcp_keepalives_idle: 900
+        tcp_keepalives_interval: 100
+        temp_file_limit: 1GB
+        timescaledb.passfile: ../.pgpass
+        unix_socket_directories: /var/run/postgresql
+        unix_socket_permissions: "0750"
+        wal_level: hot_standby
+        wal_log_hints: "on"
+        wal_keep_segments: 100
+
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+
+  pg_hba:
+  - host replication replicator 0.0.0.0/0 md5
+  - host all all 0.0.0.0/0 md5
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: {{ ansible_ec2_local_ipv4 }}:5432
+  data_dir: /var/lib/postgresql/11/main
+  bin_dir: /usr/lib/postgresql/11//bin
+  config_dir: /etc/postgresql/11/main
+  authentication:
+    replication:
+      username: replicator
+      password: {{ pg_replicator_password }}
+    superuser:
+      username: postgres
+      password: {{ pg_postgres_password }}
+  create_replica_methods:
+  - basebackup
+  basebackup:
+  - waldir: /var/lib/postgresql/wal/pg_wal
+  pgbackrest:
+    command: pgbackrest --stanza={{ patroni_scope | default('engineering') }}-stanza --force --delta --log-level-console=detail restore
+    keep_data: true
+    no_master: 1
+    no_params: true
+  recovery_conf:
+    restore_command: pgbackrest --stanza={{ patroni_scope | default('engineering') }}-stanza archive-get %f "%p"
+  parameters:
+    unix_socket_directories: '/var/run/postgresql/'
+    logging_collector: 'on'
+    log_directory: '/var/log/postgresql'
+    log_filename: 'postgresql-{{ patroni_scope | default('engineering') }}.log'

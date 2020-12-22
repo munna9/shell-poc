@@ -1,0 +1,6 @@
+ETCD_LISTEN_PEER_URLS="http://0.0.0.0:2380"
+ETCD_LISTEN_CLIENT_URLS="http://0.0.0.0:2379"
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ ansible_ec2_local_ipv4 }}:2380"
+ETCD_INITIAL_CLUSTER_TOKEN="uGLicTAnDrafTEnlOGjAmBeRIaNDeS"
+ETCD_ADVERTISE_CLIENT_URLS="http://{{ ansible_ec2_local_ipv4 }}:2379,http://localhost:2379"
+ETCD_INITIAL_CLUSTER="{% for etcd_hostname in etcd_hostnames %}{{ etcd_hostname }}={{ etcd_endpoints[loop.index - 1] }}{% if not loop.last %},{% endif %}{% endfor %}"

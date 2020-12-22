@@ -1,0 +1,13 @@
+currentLeader=`curl -s http://localhost:8008/cluster | jq -r '.members[] | select(.role=="leader") | .name'`
+hostname=`hostname`
+
+#Check if curent node is leader
+isLeader(){
+    if [ $currentLeader == $hostname ]; then
+        echo "This node is leader."
+        return 0
+    else
+        echo "This node is follower"
+        return 1
+    fi
+}

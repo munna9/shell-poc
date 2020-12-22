@@ -1,0 +1,49 @@
+- name: create directory for scripts
+  file:
+    path: /etc/timescaledb/scripts
+    state: directory
+    mode: '0755'
+
+- name: install patroni
+  apt:
+    pkg:
+      - pgbackrest
+    update_cache: yes
+
+- name: configure pgbackrest
+  template:
+    src: etc/pgbackrest.conf.j2
+    dest: /etc/pgbackrest.conf
+
+- name: configure timescaledb scripts
+  template:
+    src: etc/timescaledb/scripts/init-backup.sh.j2
+    dest: /etc/timescaledb/scripts/init-backup.sh
+    owner: root
+    group: postgres
+    mode: '0754'
+
+- name: configure timescaledb scripts
+  template:
+    src: etc/timescaledb/scripts/is-leader.sh.j2
+    dest: /etc/timescaledb/scripts/is-leader.sh
+    owner: root
+    group: postgres
+    mode: '0754'
+
+- name: configure timescaledb scripts
+  template:
+    src: etc/timescaledb/scripts/run-backup.sh.j2
+    dest: /etc/timescaledb/scripts/run-backup.sh
+    owner: root
+    group: postgres
+    mode: '0754'
+
+- name: configure scripts to run as cron
+  cron:
+    name: "check dirs"
+    minute: "0"
+    hour: "0"
+    day: "*/1"
+    job: "/etc/timescaledb/scripts/run-backup.sh"
+    user: postgres
